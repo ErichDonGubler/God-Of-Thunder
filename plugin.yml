@@ -1,0 +1,12 @@
+name: Legionaire
+main: com.KoryuObihiro.bukkit.legionaire.Legionaire
+version: 1.2
+authors: [KoryuObihiro]
+description: |
+    OMG THUNDER
+commands:
+  legionaire:
+    aliases: [leg]
+    description: asdf
+    usage: |
+           /<command> 
