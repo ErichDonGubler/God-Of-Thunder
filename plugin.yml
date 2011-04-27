@@ -1,12 +1,12 @@
-name: Legionaire
-main: com.KoryuObihiro.bukkit.legionaire.Legionaire
-version: 1.2
+name: GodOfThunder
+main: com.KoryuObihiro.bukkit.godofthunder.GodOfThunder
+version: 0.1
 authors: [KoryuObihiro]
 description: |
-    OMG THUNDER
+    God of Thunder - unleash the storm within!
 commands:
-  legionaire:
-    aliases: [leg]
+  godofthunder:
+    aliases: [got]
     description: asdf
     usage: |
            /<command> 
