@@ -5,12 +5,15 @@ package com.KoryuObihiro.bukkit.godofthunder;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerListener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.ChatColor;
 
 
 public class GOTPlayerListener extends PlayerListener
 {
+	//TODO add file persistence
 //Members
 	private GodOfThunder plugin;
 	//Constructors	
@@ -21,17 +24,25 @@ public class GOTPlayerListener extends PlayerListener
 	
 //Functions
 	@Override
-	public void onPlayerInteract(PlayerInteractEvent event)
+	public void onPlayerJoin(PlayerJoinEvent event)
 	{
-		Player player = event.getPlayer();
-		plugin.tryPower(player, event);
+		if(GodOfThunder.hasPermission(event.getPlayer(), "got.use"))
+			plugin.playerConfigs.put(event.getPlayer(), new GOTPlayerConfiguration(plugin, event.getPlayer()));
 	}
 	
 	@Override
-	public void onPlayerEggThrow(PlayerEggThrowEvent event)
+	public void onPlayerQuit(PlayerQuitEvent event)
 	{
 		Player player = event.getPlayer();
-		player.sendMessage(ChatColor.GREEN + "asdf");
-		plugin.egg_Change(player, event);
+		if(plugin.playerConfigs.containsKey(player)) //TODO Does the player hash evaluation change when the world changes?
+		{
+			plugin.playerConfigs.get(player).save();
+			plugin.playerConfigs.remove(player);
+		}
+	}
+	@Override
+	public void onPlayerInteract(PlayerInteractEvent event)
+	{
+		plugin.tryStrike(event);
 	}
 }
