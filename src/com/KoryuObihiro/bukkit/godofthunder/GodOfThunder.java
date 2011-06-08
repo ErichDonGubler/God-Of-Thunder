@@ -1,25 +1,20 @@
 package com.KoryuObihiro.bukkit.godofthunder;
 
-import java.util.ArrayList;
+import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-
-import net.minecraft.server.Explosion;
+import java.util.logging.Logger;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.entity.CreatureType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.player.PlayerEggThrowEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -29,8 +24,6 @@ import org.bukkit.util.config.ConfigurationNode;
 
 import com.nijiko.permissions.PermissionHandler;
 import com.nijikokun.bukkit.Permissions.Permissions;
-
-import java.util.logging.Logger;
 
 /**
  * "LoftJump" for Bukkit
@@ -42,14 +35,16 @@ public class GodOfThunder extends JavaPlugin{
 	private final GOTPlayerListener playerListener = new GOTPlayerListener(this);
 	public static Logger log = Logger.getLogger("Minecraft");
 	public static PermissionHandler Permissions = null;
-	Configuration config = getConfiguration();
+	Configuration config;
 	
 	public final HashMap<World, HashMap<LightningType, Short>> durabilityCosts = new HashMap<World, HashMap<LightningType, Short>>();
 	public final HashMap<World, HashMap<LightningType, Integer>> typeLimits = new HashMap<World, HashMap<LightningType, Integer>>();
-	public final HashMap<Player, GOTPlayerConfiguration> playerConfigs = new HashMap<Player, GOTPlayerConfiguration>();
+	public final HashMap<String, GOTPlayerConfiguration> playerConfigs = new HashMap<String, GOTPlayerConfiguration>();
 	
 	public HashSet<Byte> nonStrikableBlocks = new HashSet<Byte>();
 	
+
+	//TODO Deregister when Bukkit supports
 ////////////////////////// INITIALIZATION ///////////////////////////////
 	@Override
 	public void onEnable() 
@@ -67,9 +62,10 @@ public class GodOfThunder extends JavaPlugin{
 					+ " enabled [Permissions not found]");
 		
 		//register plugin-related stuff with the server's plugin manager
-		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_INTERACT, playerListener, Event.Priority.Normal, this);
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_JOIN, playerListener, Event.Priority.Normal, this);
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_QUIT, playerListener, Event.Priority.Normal, this);
+		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_INTERACT, playerListener, Event.Priority.Normal, this);
+		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_TELEPORT, playerListener, Event.Priority.Normal, this);
 		//getServer().getPluginManager().registerEvent(Event.Type.PLAYER_EGG_THROW, playerListener, Event.Priority.Normal, this);
 		
 		//populate nonStrikableBlocks
@@ -87,45 +83,91 @@ public class GodOfThunder extends JavaPlugin{
 		nonStrikableBlocks.add((byte)Material.YELLOW_FLOWER.getId());
 		nonStrikableBlocks.add((byte)Material.RED_ROSE.getId());
 		nonStrikableBlocks.add((byte)Material.BED_BLOCK.getId());
+		nonStrikableBlocks.add((byte)Material.FIRE.getId());
+		nonStrikableBlocks.add((byte)Material.LEVER.getId());
 		
 		reload();
 	}
 	private void reload() 
 	{
 		playerConfigs.clear();
-		config.load();
+
+		config = getConfiguration();
+		File configFile = new File("plugins\\GodOfThunder", "config.yml");
+		if(!configFile.exists())
+		{
+			config.save();
+			config.load();
+		}
+
+
+		HashMap<LightningType, Integer> limitMap = null;
+		HashMap<LightningType, Short> durabilityMap = null;
+		//TODO Remove when the ghettoness is done.
 		for(World world : getServer().getWorlds())
 		{
+			limitMap = new HashMap<LightningType, Integer>();
+			durabilityMap = new HashMap<LightningType, Short>();
+			
 			//load world settings
 			ConfigurationNode worldNode = config.getNode(world.getName());
-			if(worldNode.equals(null))
+			if(worldNode == null)
 				worldNode = writeDefaults(world);
 			
+			//get settings of the world
+			for(LightningType lightningType : LightningType.values())
+			{
+				try
+				{
+					limitMap.put(lightningType, worldNode.getInt(lightningType.getTypeString() + ".limit", lightningType.getDefaultAttribute()));
+				}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+					log.severe("");
+				}
+				try
+				{
+					durabilityMap.put(lightningType, (short)worldNode.getInt(lightningType.getTypeString() + ".durability", lightningType.getDefaultAttribute()));
+				}
+				catch(Exception e)
+				{
+					e.printStackTrace();
+					log.severe("Could not load durability cost for " + world.getName() + "." + lightningType.getTypeString());
+				}
+			}
+			
+			typeLimits.put(world, limitMap);
+			durabilityCosts.put(world, durabilityMap);
 			//load settings of players on the server}
 			for(Player player : world.getPlayers())
-				playerConfigs.put(player, new GOTPlayerConfiguration(this, player, worldNode));
+				playerConfigs.put(player.getName(), new GOTPlayerConfiguration(this, player));
 		}
+		
 	}
 
 	private ConfigurationNode writeDefaults(World world) 
 	{
-		config.setProperty(world.getName(), "");
-		ConfigurationNode worldNode = config.getNode(world.getName());
+		String worldName = world.getName();
+		log.info("World \"" + worldName + "\" not found in config, generating a default one...");
 		for(LightningType lightningType : LightningType.values())
 		{
-			if(lightningType.equals(LightningType.NORMAL))
-				continue;
-			worldNode.setProperty(lightningType.getTypeString(), lightningType.getDefaultAttribute());
+			config.setProperty(worldName + "." + lightningType.getTypeString() + ".durability", 0); //FIXME Figure out durability stuffs, put 'er in the enum.
+			if(lightningType.equals(LightningType.NORMAL)) continue;
+			config.setProperty(worldName + "." + lightningType.getTypeString() + ".limit", lightningType.getDefaultAttribute());
 		}
-		return config.getNode(world.getName());
-		
+		config.save();
+		config.load();
+		return config.getNode(worldName);
 	}
+	
 	@Override
 	public void onDisable() 
 	{
-		//TODO Deregister when Bukkit supports
 		log.info("["+getDescription().getName()+"] disabled.");	
 		//configs.clear();
+		for(GOTPlayerConfiguration playerConfig : playerConfigs.values())
+			playerConfig.save();
 	}
 	
 ///////////////////// COMMAND HANDLING //////////////////////////////
@@ -135,81 +177,98 @@ public class GodOfThunder extends JavaPlugin{
 		//debugging		
 		if ((label.equalsIgnoreCase("GodOfThunder") || label.equalsIgnoreCase("got")) && sender instanceof Player)
 		{
-			Player player = (Player)sender; //TODO Stop being lame.
-			if(args.length >= 0 && hasPermission(player, "got.use"))
+			Player player = (Player)sender;
+			if(args.length >= 0)
 			{
-				if(args.length == 1)
+				if(playerConfigs.get(player.getName()).isLoaded())
 				{
-					if (args[0].equalsIgnoreCase("unbind"))
+					if(hasPermission(player, "got.use"))
 					{
-						playerConfigs.get(player).unbind(player.getItemInHand().getType());
-						return true;
-					}
-					else if(args[0].equalsIgnoreCase("check")) //TODO Check other worlds soon?
-					{
-						if(hasPermission(player, "got.check"))
-							sendWorldConfig(player, player.getWorld());
-						else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
-						return true;
-					}
-					else if(args[0].equalsIgnoreCase("reload"))
-					{
-						if(hasPermission(player, "got.reload")) reload();
-						else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
-						return true;
-					}
-				}
-				else if(args.length == 2)
-				{
-					boolean didSomething = false;
-					if(args[0].equalsIgnoreCase("unbind"))
-					{
-						if(args[1].equalsIgnoreCase("all"))
-							playerConfigs.get(player).unbindAll();
-						else 
+						if(args.length == 1)
 						{
-							for(LightningType lightningType : LightningType.values())
-								if(args[0].equalsIgnoreCase(lightningType.getTypeString()))
+							if (args[0].equalsIgnoreCase("unbind"))
+							{
+								playerConfigs.get(player.getName()).unbind(player.getItemInHand().getType());
+								return true;
+							}
+							else if(args[0].equalsIgnoreCase("check")) //TODO Check other worlds soon?
+							{
+								//if(hasPermission(player, "got.check"))
+									sendWorldConfig(player, player.getWorld());
+								//else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
+								return true;
+							}
+							else if(args[0].equalsIgnoreCase("reload"))
+							{
+								if(hasPermission(player, "got.reload")) reload();
+								else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
+								return true;
+							}
+						}
+						else if(args.length == 2)
+						{
+							boolean didSomething = false;
+							if(args[0].equalsIgnoreCase("unbind"))
+							{
+								if(args[1].equalsIgnoreCase("all"))
+									playerConfigs.get(player.getName()).unbindAll();
+								else 
 								{
-									playerConfigs.get(player).unbind(lightningType);
-									didSomething = true;
+									for(LightningType lightningType : LightningType.values())
+										if(args[0].equalsIgnoreCase(lightningType.getTypeString()))
+										{
+											playerConfigs.get(player.getName()).unbind(lightningType);
+											didSomething = true;
+										}
+									if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
 								}
-							if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
-						}
-					}
-					else if(args[0].equalsIgnoreCase("bind"))
-					{
-						for(LightningType lightningType : LightningType.values())
-							if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
-							{
-								playerConfigs.get(player).bindMaterialToLightningType(player.getItemInHand().getType(), lightningType);
-								didSomething = true;
 							}
-						if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
-					}
-					return true;
-				}
-				else if (args.length == 3 && args[0].equalsIgnoreCase("set"))
-				{
-					boolean setSomething = true;
-					for(LightningType lightningType : LightningType.values())
-						if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
+							else if(args[0].equalsIgnoreCase("bind"))
+							{
+								for(LightningType lightningType : LightningType.values())
+									if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
+									{
+										playerConfigs.get(player.getName()).bindMaterialToLightningType(player.getItemInHand().getType(), lightningType);
+										didSomething = true;
+									}
+								if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
+							}
+							return true;
+						}
+						else if (args.length == 3 && args[0].equalsIgnoreCase("set"))
 						{
-							try{ playerConfigs.get(player).setAttribute(lightningType, Integer.parseInt(args[2]));}
-							catch(Exception e)
-							{
-								player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
-							}
-							setSomething = true;
-							break;
+							boolean setSomething = true;
+							for(LightningType lightningType : LightningType.values())
+								if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
+								{
+									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]));}
+									catch(Exception e)
+									{
+										player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
+									}
+									setSomething = true;
+									break;
+								}
+							if(!setSomething) player.sendMessage(ChatColor.RED + "No matching lightning type!");
+							return true;
 						}
-					if(!setSomething) player.sendMessage(ChatColor.RED + "No matching lightning type!");
+						sendUsage(player);
+					}
+					else
+					{
+						player.sendMessage(ChatColor.RED + "[GoT] You don't have permissions to use GoT.");
+						return true;
+					}
+				}
+				else
+				{
+					player.sendMessage(ChatColor.RED + "[GoT] Not configured in GoT - try rejoining.");
 					return true;
 				}
-				sendUsage(player);
 			}
+			else sendUsage(player);
 		}
-		sendUsage(null);
+		else sendUsage(null);
 		return true;
 	}	
 
@@ -218,10 +277,20 @@ public class GodOfThunder extends JavaPlugin{
 		HashMap<LightningType, Integer> limitMap = typeLimits.get(world);
 		if(player != null)
 		{
-		    player.sendMessage(ChatColor.YELLOW + "GoT settings for world " + ChatColor.DARK_PURPLE + world.getName() + ":\n" );
+		    player.sendMessage(ChatColor.GOLD + "[GoT] Settings for world " + ChatColor.DARK_PURPLE + world.getName() 
+		    		+ ChatColor.GOLD + ":");
+		    player.sendMessage(ChatColor.YELLOW + "(" + ChatColor.GREEN + "Green" + ChatColor.YELLOW + ") indicates usability)");
 		    for(LightningType lightningType : LightningType.values())
 		    	if(!lightningType.equals(LightningType.NORMAL))
-		    		player.sendMessage(ChatColor.AQUA + lightningType.getTypeString() + ": " + limitMap.get(lightningType));
+		    	{
+		    		boolean lolwut = hasPermission(player, "got.use." + lightningType.getTypeString());
+		    		player.sendMessage((lolwut?ChatColor.GREEN:ChatColor.AQUA) + lightningType.getTypeString() 
+		    				+ ChatColor.BLUE + " (Limit " + Integer.toString(limitMap.get(lightningType)) + ")"
+		    				+ (lolwut
+		    						?(ChatColor.GREEN + " Player settings: " 
+		    							+ Integer.toString(playerConfigs.get(player.getName()).getTypeAttribute(lightningType)))
+		    						:""));
+		    	}
 		}
 		    
 		else 
@@ -246,10 +315,6 @@ public class GodOfThunder extends JavaPlugin{
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got bind (alias b) (lightningType) - bind current item to the specified type of lightning");
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got unbind (alias u) [lightningType] - unbind current item [or lightningType]");
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got set (lightningType) (#value) - set lightning type attribute (see below)");
-				player.sendMessage(ChatColor.GOLD + "You can use these types of lightning in this world: (LightningType: Attribute)");
-				for(LightningType lightningType : LightningType.values())
-					if(hasPermission(player, "got.type." + lightningType.getTypeString()))
-						player.sendMessage(ChatColor.GREEN + lightningType.getTypeString() + ": " + lightningType.getAttributeString());
 			}
 			else player.sendMessage(ChatColor.RED + "No permissions. :(");
 		}
@@ -262,49 +327,36 @@ public class GodOfThunder extends JavaPlugin{
 	{
 		Player player = event.getPlayer(); 
 		World world = player.getWorld();
-		
-		if((event.getAction() == Action.RIGHT_CLICK_AIR) || event.getAction() == Action.RIGHT_CLICK_BLOCK)
-		{
-			//weather-related stuff
-			if(player.getItemInHand().getType() == Material.WATER_BUCKET
-					&& hasPermission(player, "got.weather.start"))
+			if(playerConfigs.get(player.getName()).containsKey(player.getItemInHand().getType()))
 			{
-				player.setItemInHand(new ItemStack(Material.BUCKET));
-				setWeather(world, true);
-			}
-			else if(player.getItemInHand().getType() == Material.BUCKET
-						&& hasPermission(player, "got.weather.stop"))
-			{
-				player.setItemInHand(new ItemStack(Material.WATER_BUCKET));
-				setWeather(world, false);
-			}
-			//weapon-based stuff
-			else if(playerConfigs.get(player).containsKey(player.getItemInHand().getType()))
-			{
-				LightningType lightningType = playerConfigs.get(player).getBoundLightningType(player.getItemInHand().getType());
+				LightningType lightningType = playerConfigs.get(player.getName()).getBoundLightningType(player.getItemInHand().getType());
 				if(hasPermission(player, "got.type." + lightningType.getTypeString()))
 					strikeLightning(player, lightningType);
-			}		
-		}	
-	}
-
-	private void setWeather(World world, boolean weather) 
-	{
-		if(weather)
-		{
-			world.setStorm(true);
-			world.setWeatherDuration(100);
-		}
-		else
-		{
-			world.setStorm(false);
-			world.setWeatherDuration(0); //TODO Does this work?
-		}
+			}
+			else if(hasPermission(player, "got.bucket"))
+			{
+				//TODO Refactor this...but definitely not high-priority.
+				if(player.getItemInHand().getType().equals(Material.WATER_BUCKET)
+						&& !world.isThundering())
+				{
+					player.setItemInHand(new ItemStack(Material.BUCKET, 1));
+					world.setStorm(true);
+					world.setThundering(true);
+				}
+				else if(player.getItemInHand().getType().equals(Material.BUCKET)
+							&& world.isThundering())
+				{
+					player.setItemInHand(new ItemStack(Material.WATER_BUCKET, 1));
+					world.setStorm(false);
+					world.setThundering(false);
+				}
+			}
+			
 	}
 	
 	private boolean strikeLightning(Player player, LightningType lightningType)
 	{
-		int commandModifier = playerConfigs.get(player).getTypeAttribute(lightningType);
+		int commandModifier = playerConfigs.get(player.getName()).getTypeAttribute(lightningType);
 		Location thunderLoc = findStrikeArea(player);
 		switch(lightningType)
 		{
@@ -319,9 +371,10 @@ public class GodOfThunder extends JavaPlugin{
 				break;
 				
 			case DIFFUSIVE: 
-				player.getWorld().strikeLightning(thunderLoc);
-				if(commandModifier > 0)
-					generateFire(commandModifier);
+				if(player.getWorld().strikeLightningEffect(thunderLoc).isEffect())
+					player.sendMessage("IMA EFFECT SON"); //TODO REMOVE ME
+				//if(commandModifier > 0)
+					//generateFire(thunderLoc, commandModifier);
 				break;
 				
 			case SUMMON_CREEPER:
@@ -342,12 +395,11 @@ public class GodOfThunder extends JavaPlugin{
 			player.getItemInHand().setDurability((short)(player.getItemInHand().getDurability() 
 					- durabilityCosts.get(player.getWorld()).get(lightningType)));
 	}
-
-	private void generateFire(int radius) 
+	
+	/*private void generateFire(Location location, int radius) 
 	{
-		// TODO Auto-generated method stub
 		
-	}
+	}*/
 
 	private void strikeAndSummon(Player player, CreatureType creatureType) 
 	{
@@ -382,7 +434,7 @@ public class GodOfThunder extends JavaPlugin{
 	{
 		if (GodOfThunder.Permissions != null)
 		{
-			if (GodOfThunder.Permissions.getPermissionBoolean(player.getWorld().getName(), player.getName(), permission)) 
+			if (GodOfThunder.Permissions.has(player, permission)) 
 				return true;
 			return false;
 		}

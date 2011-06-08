@@ -7,8 +7,8 @@ public enum LightningType
 	NORMAL("normal", false, null, "No config.", 0),
 	EXPLOSIVE("explosive", false, null, "explosive power", 6),
 	DIFFUSIVE("diffusive", false, null, "fire spread", 5),
-	SUMMON_CREEPER("summon.creeper", true, CreatureType.CREEPER, "summons Creeper(s)", 1),
-	SUMMON_PIGZOMBIE("summon.pigzombie", true, CreatureType.PIG_ZOMBIE, "summons PigZombie(s)", 1);
+	SUMMON_CREEPER("summon_creeper", true, CreatureType.CREEPER, "summons Creeper(s)", 1),
+	SUMMON_PIGZOMBIE("summon_pigzombie", true, CreatureType.PIG_ZOMBIE, "summons PigZombie(s)", 1);
 	
 	private String typeString;
 	private boolean isSummon;
