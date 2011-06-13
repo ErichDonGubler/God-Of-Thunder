@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="GodOfThunder" default="jar">
+	<description>
+            Comprehensive damage control for the CraftBukkit server
+    </description>
+	<target name="jar">
+		<jar destfile="C:\Documents and Settings\gublered\My Documents\Minecraft\plugins\GodOfThunder.jar" update="false">
+			<fileset dir="bin" includes="**/*.class" />
+			<fileset dir="." includes="plugin.yml" />
+
+			<manifest>
+				<attribute name="Author" value="KoryuObihiro"/>
+				<attribute name="Implementation-Vendor" value=""/>
+				<attribute name="Implementation-Title" value="GodOfThunder"/>
+				<attribute name="Implementation-Version" value="1.0"/>
+				<!-- details -->
+				<!--
+				<section name="common/MyClass.class">
+					<attribute name="Sealed" value="false"/>
+				</section>
+				-->
+			</manifest>
+		</jar>
+	</target>
+</project>

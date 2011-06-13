@@ -1,12 +1,12 @@
 name: GodOfThunder
 main: com.KoryuObihiro.bukkit.godofthunder.GodOfThunder
-version: 0.1
+version: 1.0
 authors: [KoryuObihiro]
 description: |
     God of Thunder - unleash the storm within!
 commands:
   godofthunder:
     aliases: [got]
-    description: asdf
+    description: Does anybody even use this?
     usage: |
            /<command> 

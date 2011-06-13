@@ -11,8 +11,6 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.entity.CreatureType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -26,10 +24,10 @@ import com.nijiko.permissions.PermissionHandler;
 import com.nijikokun.bukkit.Permissions.Permissions;
 
 /**
- * "LoftJump" for Bukkit
+ * "God of Thunder" for Bukkit
  * 
  * @author Erich Gubler
- *
+ * 
  */
 public class GodOfThunder extends JavaPlugin{
 	private final GOTPlayerListener playerListener = new GOTPlayerListener(this);
@@ -66,11 +64,9 @@ public class GodOfThunder extends JavaPlugin{
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_QUIT, playerListener, Event.Priority.Normal, this);
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_INTERACT, playerListener, Event.Priority.Normal, this);
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_TELEPORT, playerListener, Event.Priority.Normal, this);
-		//getServer().getPluginManager().registerEvent(Event.Type.PLAYER_EGG_THROW, playerListener, Event.Priority.Normal, this);
 		
 		//populate nonStrikableBlocks
 		nonStrikableBlocks.add((byte)Material.AIR.getId() );
-		nonStrikableBlocks.add((byte)Material.FENCE.getId());
 		nonStrikableBlocks.add((byte)Material.GLASS.getId());
 		nonStrikableBlocks.add((byte)Material.LADDER.getId());
 		nonStrikableBlocks.add((byte)Material.TORCH.getId());
@@ -78,6 +74,7 @@ public class GodOfThunder extends JavaPlugin{
 		nonStrikableBlocks.add((byte)Material.REDSTONE_TORCH_OFF.getId());
 		nonStrikableBlocks.add((byte)Material.REDSTONE_WIRE.getId());
 		nonStrikableBlocks.add((byte)Material.STATIONARY_WATER.getId());
+		nonStrikableBlocks.add((byte)Material.STATIONARY_LAVA.getId());
 		nonStrikableBlocks.add((byte)Material.STONE_PLATE.getId());
 		nonStrikableBlocks.add((byte)Material.WATER.getId());
 		nonStrikableBlocks.add((byte)Material.YELLOW_FLOWER.getId());
@@ -85,21 +82,19 @@ public class GodOfThunder extends JavaPlugin{
 		nonStrikableBlocks.add((byte)Material.BED_BLOCK.getId());
 		nonStrikableBlocks.add((byte)Material.FIRE.getId());
 		nonStrikableBlocks.add((byte)Material.LEVER.getId());
-		
+
+		config = getConfiguration();
 		reload();
 	}
 	private void reload() 
 	{
+		for(GOTPlayerConfiguration playerConfig : playerConfigs.values())
+			playerConfig.save();
 		playerConfigs.clear();
 
-		config = getConfiguration();
-		File configFile = new File("plugins\\GodOfThunder", "config.yml");
-		if(!configFile.exists())
-		{
+		if(!(new File("plugins\\GodOfThunder", "config.yml")).exists())
 			config.save();
-			config.load();
-		}
-
+		config.load();
 
 		HashMap<LightningType, Integer> limitMap = null;
 		HashMap<LightningType, Short> durabilityMap = null;
@@ -193,9 +188,7 @@ public class GodOfThunder extends JavaPlugin{
 							}
 							else if(args[0].equalsIgnoreCase("check")) //TODO Check other worlds soon?
 							{
-								//if(hasPermission(player, "got.check"))
-									sendWorldConfig(player, player.getWorld());
-								//else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
+								sendWorldConfig(player, player.getWorld());
 								return true;
 							}
 							else if(args[0].equalsIgnoreCase("reload"))
@@ -241,7 +234,7 @@ public class GodOfThunder extends JavaPlugin{
 							for(LightningType lightningType : LightningType.values())
 								if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
 								{
-									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]));}
+									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]), false);}
 									catch(Exception e)
 									{
 										player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
@@ -281,16 +274,25 @@ public class GodOfThunder extends JavaPlugin{
 		    		+ ChatColor.GOLD + ":");
 		    player.sendMessage(ChatColor.YELLOW + "(" + ChatColor.GREEN + "Green" + ChatColor.YELLOW + ") indicates usability)");
 		    for(LightningType lightningType : LightningType.values())
-		    	if(!lightningType.equals(LightningType.NORMAL))
+		    {
+		    	String boundMaterialString = "";
+		    	if(playerConfigs.get(player.getName()).isBound(lightningType))
 		    	{
-		    		boolean lolwut = hasPermission(player, "got.use." + lightningType.getTypeString());
-		    		player.sendMessage((lolwut?ChatColor.GREEN:ChatColor.AQUA) + lightningType.getTypeString() 
-		    				+ ChatColor.BLUE + " (Limit " + Integer.toString(limitMap.get(lightningType)) + ")"
-		    				+ (lolwut
-		    						?(ChatColor.GREEN + " Player settings: " 
-		    							+ Integer.toString(playerConfigs.get(player.getName()).getTypeAttribute(lightningType)))
-		    						:""));
+		    		boundMaterialString = playerConfigs.get(player.getName()).getBoundMaterial(lightningType).name();
 		    	}
+	    		boolean hasPermission = hasPermission(player, "got.use." + lightningType.getTypeString());
+		    	if(lightningType.shouldBeConfigured())
+		    		player.sendMessage((hasPermission?ChatColor.GREEN:ChatColor.AQUA) + lightningType.getTypeString() 
+		    				+ ChatColor.BLUE + " (Limit " + Integer.toString(limitMap.get(lightningType)) + ")"
+		    				+ (hasPermission
+		    						?(ChatColor.GREEN + " Player settings: " 
+		    							+ Integer.toString(playerConfigs.get(player.getName()).getTypeAttribute(lightningType))
+		    							+ ChatColor.GOLD + "(" + boundMaterialString + ")")
+		    						:""));
+		    	else player.sendMessage((hasPermission
+							    			?ChatColor.GREEN + lightningType.getTypeString() + ChatColor.GOLD + "(" + boundMaterialString + ")"
+							    			:ChatColor.AQUA + lightningType.getTypeString()));
+		    }
 		}
 		    
 		else 
@@ -312,10 +314,13 @@ public class GodOfThunder extends JavaPlugin{
 			player.sendMessage(ChatColor.LIGHT_PURPLE + "/godofthunder (alias /got) - brings up this help message");
 			if(hasPermission(player, "got.use"))
 			{
-				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got bind (alias b) (lightningType) - bind current item to the specified type of lightning");
-				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got unbind (alias u) [lightningType] - unbind current item [or lightningType]");
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got check (alias c) - see world configuration");
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got bind (alias b) (lightningType) - bind current item");
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got unbind (alias u) [all | lightningType] - unbind current item [or lightningType]");
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got set (lightningType) (#value) - set lightning type attribute (see below)");
 			}
+			if(hasPermission(player, "got.reload")) 
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got reload - reload plugin from configuration file");
 			else player.sendMessage(ChatColor.RED + "No permissions. :(");
 		}
 		else log.info("[God Of Thunder] Error: must be a player to use GoT commands."); //TODO Stop being lame here.
@@ -327,11 +332,16 @@ public class GodOfThunder extends JavaPlugin{
 	{
 		Player player = event.getPlayer(); 
 		World world = player.getWorld();
-			if(playerConfigs.get(player.getName()).containsKey(player.getItemInHand().getType()))
+			if(playerConfigs.get(player.getName()).isBound(player.getItemInHand().getType()))
 			{
 				LightningType lightningType = playerConfigs.get(player.getName()).getBoundLightningType(player.getItemInHand().getType());
 				if(hasPermission(player, "got.type." + lightningType.getTypeString()))
-					strikeLightning(player, lightningType);
+				{
+					int commandModifier = playerConfigs.get(player.getName()).getTypeAttribute(lightningType);
+					Location thunderLoc = findStrikeArea(player);
+					lightningType.strikeLightning(player, thunderLoc, commandModifier);
+					degradeWeapon(player, lightningType);
+				}
 			}
 			else if(hasPermission(player, "got.bucket"))
 			{
@@ -353,63 +363,6 @@ public class GodOfThunder extends JavaPlugin{
 			}
 			
 	}
-	
-	private boolean strikeLightning(Player player, LightningType lightningType)
-	{
-		int commandModifier = playerConfigs.get(player.getName()).getTypeAttribute(lightningType);
-		Location thunderLoc = findStrikeArea(player);
-		switch(lightningType)
-		{
-			case NORMAL: 
-				player.getWorld().strikeLightning(thunderLoc);
-				break;
-				
-			case EXPLOSIVE: 
-				player.getWorld().strikeLightning(thunderLoc);
-				if(commandModifier > 0)
-					((CraftWorld)player.getWorld()).getHandle().createExplosion(null, thunderLoc.getX(), thunderLoc.getY(), thunderLoc.getZ(), commandModifier, true);
-				break;
-				
-			case DIFFUSIVE: 
-				if(player.getWorld().strikeLightningEffect(thunderLoc).isEffect())
-					player.sendMessage("IMA EFFECT SON"); //TODO REMOVE ME
-				//if(commandModifier > 0)
-					//generateFire(thunderLoc, commandModifier);
-				break;
-				
-			case SUMMON_CREEPER:
-				strikeAndSummon(player, CreatureType.CREEPER);
-				break;
-				
-			case SUMMON_PIGZOMBIE:
-				strikeAndSummon(player, CreatureType.PIG_ZOMBIE);
-				break;
-		}
-		degradeWeapon(player, lightningType);
-		return true;
-	}
-	
-	private void degradeWeapon(Player player, LightningType lightningType) //TODO refer to world configs
-	{
-		if(durabilityCosts.get(player.getWorld()).containsKey(lightningType))
-			player.getItemInHand().setDurability((short)(player.getItemInHand().getDurability() 
-					- durabilityCosts.get(player.getWorld()).get(lightningType)));
-	}
-	
-	/*private void generateFire(Location location, int radius) 
-	{
-		
-	}*/
-
-	private void strikeAndSummon(Player player, CreatureType creatureType) 
-	{
-		Location thunderLoc = findStrikeArea(player);
-		Location creatureLoc = thunderLoc;
-		creatureLoc.setY(thunderLoc.getY() + 1);
-		
-		player.getWorld().strikeLightning(thunderLoc);
-		player.getWorld().spawnCreature(creatureLoc, creatureType);
-	}
 
 	private Location findStrikeArea(Player player) 
 	{
@@ -426,6 +379,12 @@ public class GodOfThunder extends JavaPlugin{
 			}
 		}
 		return strikeLocation;
+	}
+	private void degradeWeapon(Player player, LightningType lightningType) //TODO refer to world configs
+	{
+		if(durabilityCosts.get(player.getWorld()).containsKey(lightningType))
+			player.getItemInHand().setDurability((short)(player.getItemInHand().getDurability() 
+					- durabilityCosts.get(player.getWorld()).get(lightningType)));
 	}
 
 /////////////////// HELPER FUNCTIONS ////////////////////////////

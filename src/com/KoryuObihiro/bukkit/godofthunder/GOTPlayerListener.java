@@ -61,6 +61,6 @@ public class GOTPlayerListener extends PlayerListener
 	public void onPlayerTeleport(PlayerTeleportEvent event)
 	{
 		if(!event.getFrom().getWorld().equals(event.getTo().getWorld()) && plugin.playerConfigs.containsKey(event.getPlayer()))
-			plugin.playerConfigs.get(event.getPlayer().getName()).reload();
+			plugin.playerConfigs.get(event.getPlayer().getName()).load();
 	}
 }
