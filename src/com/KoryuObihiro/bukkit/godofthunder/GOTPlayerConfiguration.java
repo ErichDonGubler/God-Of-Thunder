@@ -25,9 +25,8 @@ public class GOTPlayerConfiguration
 	
 	public boolean isLoaded(){ return succeededLoading;}
 	
-	public boolean setAttribute(LightningType lightningType, int input, boolean forLoad)
+	public boolean setAttribute(LightningType lightningType, int input, boolean forLoad, boolean shouldSave)
 	{
-		//TODO Handle properties that aren't there.
 		int limit = lightningType.getDefaultAttribute();
 		
 		try
@@ -45,14 +44,14 @@ public class GOTPlayerConfiguration
 		{
 			player.sendMessage(ChatColor.RED + "[GoT] Error: Input must be a positive integer.");
 			if(forLoad)
-				setAttribute(lightningType, plugin.typeLimits.get(player.getWorld()).get(lightningType), false);
+				setAttribute(lightningType, plugin.typeLimits.get(player.getWorld()).get(lightningType), false, shouldSave);
 			else return false;
 		}
 		
 		else if(input > limit)
 		{
 			if(forLoad)
-				setAttribute(lightningType, limit, false);
+				setAttribute(lightningType, limit, false, shouldSave);
 			else player.sendMessage(ChatColor.RED + "[GoT] Error: Input greater than configured limit.");
 			return false;
 		}
@@ -60,7 +59,7 @@ public class GOTPlayerConfiguration
 			typeAttributes.remove(lightningType);
 		typeAttributes.put(lightningType, input);
 		if(forLoad) player.sendMessage(ChatColor.GREEN + "GoT] \"" + lightningType.getTypeString() + "\" attribute set to " + input);
-		save();
+		if(shouldSave) save();
 		return true;
 	}
 
@@ -155,7 +154,7 @@ public class GOTPlayerConfiguration
 	{
 		if(player == null) 
 		{
-			GodOfThunder.log.severe("[GoT] Null player passed! What did you DO?"); //TODO Remove me
+			GodOfThunder.log.severe("[GoT] Null player passed! What did you DO?");
 			return false;
 		}
 		if(plugin.config == null) 
@@ -173,27 +172,25 @@ public class GOTPlayerConfiguration
 			String attributeString = null;
 			String materialString = null;
 			try
+			{	
+				Material material = Material.matchMaterial(materialString);
+				if(material != null) bindList.put(material, lightningType);
+				else throw(new Exception());
+			}
+			catch(Exception e)
 			{
-				setAttribute(lightningType, (Integer)playerNode.getProperty(lightningType.getTypeString()), false);
+				GodOfThunder.log.severe("[GoT] Couldn't read player's bind \"" + materialString + "\"");
+			}
+			if(!lightningType.shouldBeConfigured()) continue;
+			try
+			{
+				setAttribute(lightningType, (Integer)playerNode.getProperty(lightningType.getTypeString()), false, false);
 			}
 			catch(Exception e)
 			{
 				GodOfThunder.log.severe("[GoT] Couldn't read player \"" + player.getName() + "\"'s attribute \"" 
 						+ attributeString + "\" for type \"" + lightningType.getTypeString() + "\"");
-				typeAttributes.put(lightningType, lightningType.getDefaultAttribute());
-			}
-			try
-			{
-				if(playerNode.getProperty("binds." + lightningType.getTypeString()) != null)
-				{
-					Material material = Material.matchMaterial((String)playerNode.getProperty("binds." + lightningType.getTypeString()));
-					if(material != null) bindList.put(material, lightningType);
-					else throw(new Exception());
-				}
-			}
-			catch(Exception e)
-			{
-				GodOfThunder.log.severe("[GoT] Couldn't read player's bind \"" + materialString + "\"");
+				typeAttributes.put(lightningType, lightningType.getDefaultAttribute());//Necessary?
 			}
 		}
 		return true;

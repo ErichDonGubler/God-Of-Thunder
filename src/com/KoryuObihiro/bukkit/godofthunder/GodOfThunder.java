@@ -234,7 +234,7 @@ public class GodOfThunder extends JavaPlugin{
 							for(LightningType lightningType : LightningType.values())
 								if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
 								{
-									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]), false);}
+									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]), false, true);}
 									catch(Exception e)
 									{
 										player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
