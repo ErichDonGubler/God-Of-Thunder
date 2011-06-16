@@ -52,13 +52,13 @@ public class GOTPlayerConfiguration
 		{
 			if(forLoad)
 				setAttribute(lightningType, limit, false, shouldSave);
-			else player.sendMessage(ChatColor.RED + "[GoT] Error: Input greater than configured limit.");
+			else player.sendMessage(ChatColor.YELLOW + "[GoT] Input greater than configured limit - defaulting to " + limit);
 			return false;
 		}
 		if(typeAttributes.containsKey(lightningType))
 			typeAttributes.remove(lightningType);
 		typeAttributes.put(lightningType, input);
-		if(forLoad) player.sendMessage(ChatColor.GREEN + "GoT] \"" + lightningType.getTypeString() + "\" attribute set to " + input);
+		if(!forLoad) player.sendMessage(ChatColor.GREEN + "[GoT] \"" + lightningType.getTypeString() + "\" attribute set to " + input);
 		if(shouldSave) save();
 		return true;
 	}
@@ -70,17 +70,23 @@ public class GOTPlayerConfiguration
 	{
 		if(material.equals(Material.AIR))
 		{
-			player.sendMessage(ChatColor.RED + "Can't bind to your fists. :(");
+			player.sendMessage(ChatColor.RED + "[GoT] Can't bind to your fists. :(");
 			return;
 		}
 		if(bindList.get(material) == lightningType)
 		{
-			player.sendMessage(ChatColor.RED + "Bind already exists!");
+			player.sendMessage(ChatColor.RED + "[GoT] This bind already exists!");
 			return;
 		}
 		if(bindList.containsValue(lightningType))
+		{
+			Material currentlyBound = null;
+			for(Material materialKey : bindList.keySet())
+				if(materialKey != null && bindList.get(materialKey) == lightningType)
+					currentlyBound = materialKey;
 			player.sendMessage(ChatColor.YELLOW + "Warning: bind of type " +
-					lightningType.getTypeString() +  " already exists.");
+					lightningType.getTypeString() +  " already exists for " + currentlyBound.name());
+		}
 		if(bindList.containsKey(material))
 		{
 			player.sendMessage(ChatColor.YELLOW + "Warning: overriding existing bind of type \"" 
@@ -115,10 +121,10 @@ public class GOTPlayerConfiguration
 	{
 		if(bindList.containsKey(material))
 		{
-			player.sendMessage(ChatColor.GREEN + "[GoT] Removed bind for type \"" + bindList.get(material).getTypeString() + "\"");
-			bindList.remove(material);
 			plugin.config.setProperty(player.getWorld().getName() + ".players." + player.getName() 
-										+ ".binds." + bindList.get(material).getTypeString(), "");
+					+ ".binds." + bindList.get(material).getTypeString(), "");
+			player.sendMessage(ChatColor.GREEN + "[GoT] Removed bind " + material.name() + " for type \"" + bindList.get(material).getTypeString() + "\"");
+			bindList.remove(material);
 			return;
 		}
 		player.sendMessage(ChatColor.RED + "[GoT] No bind found for material " + material.name());
@@ -128,17 +134,15 @@ public class GOTPlayerConfiguration
 	public void unbind(LightningType lightningType)
 	{
 		if(bindList.containsValue(lightningType))
-		{
 			for(Material material : bindList.keySet())
 				if(bindList.get(material).equals(lightningType))
 				{
 					bindList.remove(material);
 					plugin.config.setProperty(player.getWorld().getName() + ".players." + player.getName() 
 							+ ".binds." + lightningType.getTypeString(), "");
+					player.sendMessage(ChatColor.GREEN + "[GoT] Removed all bind " + material.name() + " for type \"" + lightningType.getTypeString() + "\"");
+					return;
 				}
-			player.sendMessage(ChatColor.GREEN + "[GoT] Removed all binds for type \"" + lightningType.getTypeString() + "\"");
-			return;
-		}
 		player.sendMessage(ChatColor.RED + "[GoT] No bind found for type \"" + lightningType.getTypeString() + "\"");
 	}
 	
@@ -146,7 +150,7 @@ public class GOTPlayerConfiguration
 
 	public int getTypeAttribute(LightningType lightningType)
 	{ 
-		if(lightningType.equals(LightningType.NORMAL)) return 0;
+		if(!lightningType.shouldBeConfigured()) return 0;
 		return typeAttributes.get(lightningType);
 	}
 	
@@ -169,13 +173,21 @@ public class GOTPlayerConfiguration
 		//get settings of the world
 		for(LightningType lightningType : LightningType.values())
 		{
-			String attributeString = null;
-			String materialString = null;
+			int attribute;
+			String materialString = "";
 			try
 			{	
-				Material material = Material.matchMaterial(materialString);
-				if(material != null) bindList.put(material, lightningType);
-				else throw(new Exception());
+				materialString = (playerNode.getProperty("binds." + lightningType.getTypeString()) != null?(String)playerNode.getProperty("binds." + lightningType.getTypeString()):"");
+				if(!materialString.isEmpty()) 
+				{
+					Material material = Material.matchMaterial(materialString);
+					if(material != null) bindList.put(material, lightningType);
+					else throw(new NumberFormatException());
+				}
+			}
+			catch(NumberFormatException e)
+			{
+				
 			}
 			catch(Exception e)
 			{
@@ -184,12 +196,12 @@ public class GOTPlayerConfiguration
 			if(!lightningType.shouldBeConfigured()) continue;
 			try
 			{
-				setAttribute(lightningType, (Integer)playerNode.getProperty(lightningType.getTypeString()), false, false);
+				attribute = (Integer)playerNode.getProperty(lightningType.getTypeString());
+				setAttribute(lightningType, attribute, true, false);
 			}
 			catch(Exception e)
 			{
-				GodOfThunder.log.severe("[GoT] Couldn't read player \"" + player.getName() + "\"'s attribute \"" 
-						+ attributeString + "\" for type \"" + lightningType.getTypeString() + "\"");
+				GodOfThunder.log.severe("[GoT] Couldn't read player \"" + player.getName() + "\"'s attribute for type \"" + lightningType.getTypeString() + "\"");
 				typeAttributes.put(lightningType, lightningType.getDefaultAttribute());//Necessary?
 			}
 		}
@@ -203,7 +215,7 @@ public class GOTPlayerConfiguration
 		for(LightningType lightningType : LightningType.values())
 		{
 			plugin.config.setProperty(configReference + ".binds." + lightningType.getTypeString(), "");
-			if(lightningType.equals(LightningType.NORMAL)) continue;
+			if(!lightningType.shouldBeConfigured()) continue;
 			plugin.config.setProperty(configReference + "." + lightningType.getTypeString(), plugin.typeLimits.get(player.getWorld()).get(lightningType));
 		}
 		plugin.config.save();
@@ -223,8 +235,8 @@ public class GOTPlayerConfiguration
 					plugin.config.setProperty(playerReference + ".binds." + lightningType.getTypeString(), material.name());
 			}
 			else plugin.config.setProperty(playerReference + ".binds." + lightningType.getTypeString(), null);
-			
-			if(lightningType.equals(LightningType.NORMAL)) continue;
+
+			if(!lightningType.shouldBeConfigured()) continue;
 			if(typeAttributes.containsKey(lightningType))
 				plugin.config.setProperty(playerReference + "." + lightningType.getTypeString(), typeAttributes.get(lightningType));
 		}

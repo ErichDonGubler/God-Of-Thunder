@@ -181,42 +181,45 @@ public class GodOfThunder extends JavaPlugin{
 					{
 						if(args.length == 1)
 						{
-							if (args[0].equalsIgnoreCase("unbind"))
-							{
+							if (args[0].equalsIgnoreCase("unbind") || args[0].equalsIgnoreCase("u"))
 								playerConfigs.get(player.getName()).unbind(player.getItemInHand().getType());
-								return true;
-							}
-							else if(args[0].equalsIgnoreCase("check")) //TODO Check other worlds soon?
+							else if(args[0].equalsIgnoreCase("check") || args[0].equalsIgnoreCase("c")) //TODO Check other worlds soon?
 							{
 								sendWorldConfig(player, player.getWorld());
-								return true;
 							}
 							else if(args[0].equalsIgnoreCase("reload"))
 							{
-								if(hasPermission(player, "got.reload")) reload();
+								if(hasPermission(player, "got.reload"))
+								{
+									reload();
+									player.sendMessage(ChatColor.GREEN + "[GoT] Reloaded!");
+								}
 								else player.sendMessage(ChatColor.RED + "You don't have permission to do that.");
-								return true;
 							}
+							else if(args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("s") || args[0].equalsIgnoreCase("bind")  || args[0].equalsIgnoreCase("b"))
+								player.sendMessage(ChatColor.RED + "[GoT] Error: expected lightning type.");
+							return true;
 						}
 						else if(args.length == 2)
 						{
 							boolean didSomething = false;
-							if(args[0].equalsIgnoreCase("unbind"))
+							if(args[0].equalsIgnoreCase("unbind") || args[0].equalsIgnoreCase("u"))
 							{
 								if(args[1].equalsIgnoreCase("all"))
 									playerConfigs.get(player.getName()).unbindAll();
 								else 
 								{
 									for(LightningType lightningType : LightningType.values())
-										if(args[0].equalsIgnoreCase(lightningType.getTypeString()))
+										if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
 										{
 											playerConfigs.get(player.getName()).unbind(lightningType);
 											didSomething = true;
 										}
-									if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
+									if(!didSomething) player.sendMessage(ChatColor.RED + "[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
 								}
+								return true;
 							}
-							else if(args[0].equalsIgnoreCase("bind"))
+							else if(args[0].equalsIgnoreCase("bind") || args[0].equalsIgnoreCase("b"))
 							{
 								for(LightningType lightningType : LightningType.values())
 									if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
@@ -224,28 +227,57 @@ public class GodOfThunder extends JavaPlugin{
 										playerConfigs.get(player.getName()).bindMaterialToLightningType(player.getItemInHand().getType(), lightningType);
 										didSomething = true;
 									}
-								if(!didSomething) player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
+								if(!didSomething) player.sendMessage(ChatColor.RED + "[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
+								return true;
 							}
-							return true;
-						}
-						else if (args.length == 3 && args[0].equalsIgnoreCase("set"))
-						{
-							boolean setSomething = true;
-							for(LightningType lightningType : LightningType.values())
-								if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
-								{
-									try{ playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]), false, true);}
-									catch(Exception e)
+							else if(args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("s"))
+							{
+								for(LightningType lightningType : LightningType.values())
+									if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
 									{
-										player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
+										player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer for set");
+										return true;
 									}
-									setSomething = true;
-									break;
-								}
-							if(!setSomething) player.sendMessage(ChatColor.RED + "No matching lightning type!");
-							return true;
+								player.sendMessage(ChatColor.RED + "[GoT] Error: Type \"" + args[1] + "\" invalid.");
+								return true;
+							}
 						}
-						sendUsage(player);
+						else if(args.length == 3)
+						{
+							boolean didSomething = false;
+							if(args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("s"))
+							{
+								for(LightningType lightningType : LightningType.values())
+									if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
+									{
+										try{ didSomething = playerConfigs.get(player.getName()).setAttribute(lightningType, Integer.parseInt(args[2]), false, true);}
+										catch(Exception e){ player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");}
+										break;
+									}
+								if(!didSomething) player.sendMessage(ChatColor.RED + "[GoT] Error: Type \"" + args[1] + "\" invalid.");	
+								return true;
+							}
+							else if(args[0].equalsIgnoreCase("bind") || args[0].equalsIgnoreCase("b"))
+							{
+								try
+								{
+									int attribute = Integer.parseInt(args[2]);
+									for(LightningType lightningType : LightningType.values())
+										if(args[1].equalsIgnoreCase(lightningType.getTypeString()))
+										{
+											playerConfigs.get(player.getName()).setAttribute(lightningType, attribute, false, true);
+											playerConfigs.get(player.getName()).bindMaterialToLightningType(player.getItemInHand().getType(), lightningType);
+											return true;
+										}
+								}
+								catch(NumberFormatException e)
+								{
+									player.sendMessage(ChatColor.RED + "[GoT] Error: expected integer input");
+								}
+								player.sendMessage("[GoT] Error: Invalid lightning type \"" + args[1] + "\"");
+								return true;
+							}
+						}
 					}
 					else
 					{
@@ -259,7 +291,7 @@ public class GodOfThunder extends JavaPlugin{
 					return true;
 				}
 			}
-			else sendUsage(player);
+			sendUsage(player);
 		}
 		else sendUsage(null);
 		return true;
@@ -299,7 +331,7 @@ public class GodOfThunder extends JavaPlugin{
 		{
 			log.info("[God Of Thunder] Limit settings for world " + world.getName() + ":\n");
 		    for(LightningType lightningType : LightningType.values())
-		    	if(!lightningType.equals(LightningType.NORMAL))
+				if(!lightningType.shouldBeConfigured())
 		    		log.info(lightningType.getTypeString() + ": " + limitMap.get(lightningType));
 		}
 	    
@@ -315,9 +347,9 @@ public class GodOfThunder extends JavaPlugin{
 			if(hasPermission(player, "got.use"))
 			{
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got check (alias c) - see world configuration");
-				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got bind (alias b) (lightningType) - bind current item");
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got bind (alias b) (lightningType) [#value] - bind current item [and set attribute]");
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got unbind (alias u) [all | lightningType] - unbind current item [or lightningType]");
-				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got set (lightningType) (#value) - set lightning type attribute (see below)");
+				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got set (lightningType) (#value) - set lightning type attribute (refer to \"check\")");
 			}
 			if(hasPermission(player, "got.reload")) 
 				player.sendMessage(ChatColor.LIGHT_PURPLE + "/got reload - reload plugin from configuration file");

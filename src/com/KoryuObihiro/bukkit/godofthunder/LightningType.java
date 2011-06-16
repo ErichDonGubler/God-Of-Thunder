@@ -73,22 +73,17 @@ public enum LightningType
 				break;
 				
 			case SUMMON_CREEPER:
-				strikeAndSummon(strikeLocation, CreatureType.CREEPER);
+				strikeEffectandSummon(strikeLocation, CreatureType.CREEPER);
 				break;
 				
 			case SUMMON_PIGZOMBIE:
-				strikeAndSummon(strikeLocation, CreatureType.PIG_ZOMBIE);
+				strikeEffectandSummon(strikeLocation, CreatureType.PIG_ZOMBIE);
 				break;
 				
 				//TODO WARP! :D
 		}
 	}
 	
-	/*private void generateFire(Location location, int radius) 
-	{
-		
-	}*/
-
 	private void generateFire(Location strikeLocation, int commandModifier) 
 	{
 		World world = strikeLocation.getWorld();
@@ -112,12 +107,12 @@ public enum LightningType
 				}
 	}
 
-	private void strikeAndSummon(Location strikeLocation, CreatureType creatureType) 
+	private void strikeEffectandSummon(Location strikeLocation, CreatureType creatureType) 
 	{
 		Location creatureLocation = strikeLocation;
 		creatureLocation.setY(strikeLocation.getY() + 1);
 		
-		strikeLocation.getWorld().strikeLightning(strikeLocation);
+		strikeLocation.getWorld().strikeLightningEffect(strikeLocation);
 		strikeLocation.getWorld().spawnCreature(creatureLocation, creatureType);
 	}
 }

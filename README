@@ -1,1 +1,22 @@
 God Of Thunder - unleash the storm within!
+Permissions:
+    - got.use
+    - got.reload
+    - got.type.*
+    ^ (This is a lightning type. Refer to /got check)
+    - got.bucket
+- Commands:
+    - check
+    - reload
+    - bind
+    - unbind
+    - set
+    
+A brief description of lightning types (all struck where you aim, of course):
+- Normal: a single strike.
+- Chain: Strike a lightning effect at sight, then strikes all living entities (except the caster) within the configured radius.
+- Explosive: Strikes and explodes with the configured amount of force (about 4 is the strength of a Creeper)
+- Diffusive: Strikes an effect and sets fire to everything within the configureed radius.
+- Fake: Like normal, but is just an effect.
+- Summon Creeper: Summons a Supercharged Creeper!
+- Summon PigZombie: Summons a PigZombie. :D
