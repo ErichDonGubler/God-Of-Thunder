@@ -20,8 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.config.Configuration;
 import org.bukkit.util.config.ConfigurationNode;
 
-import com.nijiko.permissions.PermissionHandler;
-import com.nijikokun.bukkit.Permissions.Permissions;
+import com.KoryuObihiro.bukkit.ModDamage.ModDamage;
 
 /**
  * "God of Thunder" for Bukkit
@@ -29,10 +28,11 @@ import com.nijikokun.bukkit.Permissions.Permissions;
  * @author Erich Gubler
  * 
  */
-public class GodOfThunder extends JavaPlugin{
+public class GodOfThunder extends JavaPlugin
+{
 	private final GOTPlayerListener playerListener = new GOTPlayerListener(this);
 	public static Logger log = Logger.getLogger("Minecraft");
-	public static PermissionHandler Permissions = null;
+	public static ModDamage modDamage = null;
 	Configuration config;
 	
 	public final HashMap<World, HashMap<LightningType, Short>> durabilityCosts = new HashMap<World, HashMap<LightningType, Short>>();
@@ -47,17 +47,15 @@ public class GodOfThunder extends JavaPlugin{
 	@Override
 	public void onEnable() 
 	{
-		//attempt to find permissions
-		Plugin test = getServer().getPluginManager().getPlugin("Permissions");
+		
+		Plugin test = getServer().getPluginManager().getPlugin("ModDamage");
 		if (test != null)
 		{
-			GodOfThunder.Permissions = ((Permissions)test).getHandler();
-			log.info("["+getDescription().getName()+"] " + this.getDescription().getVersion() 
-					+ " enabled [Permissions v" + test.getDescription().getVersion() + " active]");
+			modDamage = (ModDamage)test;
+			log.info("["+getDescription().getName()+"]" + "[ModDamage v" + test.getDescription().getVersion() + " found.]");
+			GOTRoutine.register();
 		}
-		else
-			log.info("["+getDescription().getName()+"] " + this.getDescription().getVersion() 
-					+ " enabled [Permissions not found]");
+		else log.info("["+getDescription().getName()+"] " + this.getDescription().getVersion() + " enabled");
 		
 		//register plugin-related stuff with the server's plugin manager
 		getServer().getPluginManager().registerEvent(Event.Type.PLAYER_JOIN, playerListener, Event.Priority.Normal, this);
@@ -138,7 +136,6 @@ public class GodOfThunder extends JavaPlugin{
 			for(Player player : world.getPlayers())
 				playerConfigs.put(player.getName(), new GOTPlayerConfiguration(this, player));
 		}
-		
 	}
 
 	private ConfigurationNode writeDefaults(World world) 
@@ -371,7 +368,7 @@ public class GodOfThunder extends JavaPlugin{
 				{
 					int commandModifier = playerConfigs.get(player.getName()).getTypeAttribute(lightningType);
 					Location thunderLoc = findStrikeArea(player);
-					lightningType.strikeLightning(player, thunderLoc, commandModifier);
+					lightningType.strikeLightning(thunderLoc, commandModifier);
 					degradeWeapon(player, lightningType);
 				}
 			}
@@ -423,12 +420,6 @@ public class GodOfThunder extends JavaPlugin{
 	//check for Permissions
 	public static boolean hasPermission(Player player, String permission)
 	{
-		if (GodOfThunder.Permissions != null)
-		{
-			if (GodOfThunder.Permissions.has(player, permission)) 
-				return true;
-			return false;
-		}
-		return player.isOp();
+		return player.hasPermission(permission) || player.isOp();
 	}
 }

@@ -7,28 +7,25 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.CreatureType;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 
 public enum LightningType 
 {
-	NORMAL("normal", false, null, "No config.", 0, false),
-	CHAIN("chain", false, null, "target radius", 8, true),
-	EXPLOSIVE("explosive", false, null, "explosive power", 6, true),
-	DIFFUSIVE("diffusive", false, null, "fire spread", 5, true),
-	FAKE("fake", false, null, "No config.", 0, false),
-	SUMMON_CREEPER("summon_creeper", true, CreatureType.CREEPER, "summon Creeper(s)", 1, true),
-	SUMMON_PIGZOMBIE("summon_pigzombie", true, CreatureType.PIG_ZOMBIE, "summon PigZombie(s)", 1, true);
+	NORMAL(false, null, "No config.", 0, false),
+	CHAIN(false, null, "target radius", 8, true),
+	EXPLOSIVE(false, null, "explosive power", 6, true),
+	DIFFUSIVE(false, null, "fire spread", 5, true),
+	FAKE(false, null, "No config.", 0, false),
+	SUMMON_CREEPER(true, CreatureType.CREEPER, "summon Creeper(s)", 1, true),
+	SUMMON_PIGZOMBIE(true, CreatureType.PIG_ZOMBIE, "summon PigZombie(s)", 1, true);
 	
-	private String typeString;
 	private boolean isSummon;
 	private CreatureType summonType;
 	private String attributeString;
 	private int defaultAttribute;
 	private boolean shouldBeConfigured;
 	
-	LightningType(String typeString, boolean summonsSomething, CreatureType summonType, String attributeString, int defaultAttribute, boolean shouldBeConfigured)
+	LightningType(boolean summonsSomething, CreatureType summonType, String attributeString, int defaultAttribute, boolean shouldBeConfigured)
 	{
-		this.typeString = typeString;
 		this.isSummon = summonsSomething;
 		this.summonType = summonType;
 		this.attributeString = attributeString;
@@ -36,31 +33,40 @@ public enum LightningType
 		this.shouldBeConfigured = shouldBeConfigured;
 	}
 	
-	public String getTypeString(){ return typeString;}
+	public String getTypeString(){ return name().toLowerCase();}
 	public boolean summonsCreature(){ return isSummon;}
 	public CreatureType getSummonType(){ return summonType;}
 	public String getAttributeString(){ return attributeString;}
 	public int getDefaultAttribute(){ return defaultAttribute;}
 	public boolean shouldBeConfigured(){ return shouldBeConfigured;}
 	
-	public void strikeLightning(Player player, Location strikeLocation, int commandModifier)
+	public void strikeLightning(Location strikeLocation, int commandModifier)
 	{
 		switch(this)
 		{
 			case NORMAL:
-				player.getWorld().strikeLightning(strikeLocation);
+				strikeLocation.getWorld().strikeLightning(strikeLocation);
 				break;
 				
 			case CHAIN:
-				for(Entity entity : player.getWorld().strikeLightningEffect(strikeLocation).getNearbyEntities(commandModifier, commandModifier, commandModifier))
-					if(entity instanceof LivingEntity && !entity.equals(player))
-						entity.getWorld().strikeLightning(entity.getLocation());
+				int radius = commandModifier;
+				for(Entity entity : strikeLocation.getWorld().getEntities())
+				    if(entity instanceof LivingEntity)
+				    {
+				        Location entityBlockLocation = entity.getLocation();
+				        int distance = Math.abs(strikeLocation.getBlockX() - entityBlockLocation.getBlockX())
+				                        + Math.abs(strikeLocation.getBlockY() - entityBlockLocation.getBlockY())
+				                        + Math.abs(strikeLocation.getBlockZ() - entityBlockLocation.getBlockZ());
+				        if(distance <= radius)
+				        	entity.getWorld().strikeLightning(entity.getLocation());
+				    }
+						
 				break;
 				
 			case EXPLOSIVE:
-				player.getWorld().strikeLightning(strikeLocation);
+				strikeLocation.getWorld().strikeLightning(strikeLocation);
 				if(commandModifier > 0)
-					player.getWorld().createExplosion(strikeLocation.getX(), strikeLocation.getY(), strikeLocation.getZ(), commandModifier);
+					strikeLocation.getWorld().createExplosion(strikeLocation.getX(), strikeLocation.getY(), strikeLocation.getZ(), commandModifier);
 				break;
 				
 			case DIFFUSIVE:
@@ -101,8 +107,19 @@ public enum LightningType
 											world.getBlockAt(origin_x - i, origin_y - j, origin_z + k),
 											world.getBlockAt(origin_x - i, origin_y - j, origin_z - k)};
 					for(Block block : blockArea)
-						if(block.getType().equals(Material.AIR) || block.getType().equals(Material.LEAVES))
-							block.setType(Material.FIRE);
+						switch(block.getType())
+						{
+							case AIR:
+							case CAKE_BLOCK:
+							case LEAVES:
+							case LONG_GRASS:
+							case RED_ROSE:
+							case SNOW:
+							case SUGAR_CANE_BLOCK:
+							case WEB:
+							case YELLOW_FLOWER:
+								block.setType(Material.FIRE);								
+						}
 					
 				}
 	}
@@ -114,5 +131,13 @@ public enum LightningType
 		
 		strikeLocation.getWorld().strikeLightningEffect(strikeLocation);
 		strikeLocation.getWorld().spawnCreature(creatureLocation, creatureType);
+	}
+	
+	public static LightningType matchType(String key)
+	{
+		for(LightningType lightningType : LightningType.values())
+			if(lightningType.name().equalsIgnoreCase(key))
+				return lightningType;
+		return null;
 	}
 }
